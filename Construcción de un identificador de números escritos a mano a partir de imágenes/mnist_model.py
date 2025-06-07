@@ -1,0 +1,72 @@
+import os
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.utils import to_categorical
+
+# 1. Cargar datos MNIST
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+# 2. Preprocesamiento
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+y_train_cat = to_categorical(y_train, 10)
+y_test_cat = to_categorical(y_test, 10)
+
+# 3. Crear modelo
+model = Sequential([
+    Flatten(input_shape=(28, 28)),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+# 4. Compilar y entrenar
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.fit(x_train, y_train_cat, epochs=5, validation_data=(x_test, y_test_cat))
+
+# 5. Evaluar
+loss, acc = model.evaluate(x_test, y_test_cat)
+print(f"\nPrecisión en test: {acc * 100:.2f}%")
+
+# 6. Guardar modelo
+model.save("modelo_entrenado.h5")
+
+# 7. Función para predecir una imagen
+def predecir_imagen(ruta_imagen):
+    img = Image.open(ruta_imagen).convert('L')  # Escala de grises
+    img = img.resize((28, 28))                  # Redimensionar a 28x28
+    img_array = np.array(img)
+    img_array = 255 - img_array                 # Invertir colores: fondo negro, número blanco
+    img_array = img_array / 255.0               # Normalizar
+    img_array = img_array.reshape(1, 28, 28)
+
+    modelo = load_model("modelo_entrenado.h5")
+    prediccion = modelo.predict(img_array)
+    resultado = np.argmax(prediccion)
+
+    plt.imshow(img, cmap='gray')
+    plt.title(f"Predicción: {resultado}")
+    plt.axis('off')
+    plt.show()
+
+    print(f"→ Predicción: {resultado}")
+
+# 8. Probar imágenes en test_images/
+test_dir = "test_images"
+
+if os.path.exists(test_dir):
+    for filename in os.listdir(test_dir):
+        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            ruta = os.path.join(test_dir, filename)
+            print(f"\nProcesando {filename}")
+            try:
+                predecir_imagen(ruta)
+            except Exception as e:
+                print(f"Error al procesar {filename}: {e}")
+else:
+    print("⚠️ No se encontró la carpeta 'test_images'. Crea una y agrega imágenes de dígitos escritos a mano.")
